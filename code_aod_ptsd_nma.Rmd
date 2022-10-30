@@ -1,0 +1,554 @@
+---
+title: "PTSD+AOD NMA"
+output:
+  html_document:
+    df_print: paged
+    fig_crop: false
+editor_options:
+  chunk_output_type: console
+---
+<style type="text/css">
+.main-container {
+  max-width: 1800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 1800)
+```
+
+# Load data and packages
+```{r}
+df.smd <- readRDS("df.smd.rds")
+library("netmeta")
+```
+
+# Determine network structure
+## PTSD outcome
+```{r}
+df.smd.ptsd <- netmeta::pairwise(studlab = citation, treat = category, n = n, mean = mean, sd = sd,
+                                 data = df.smd[df.smd$outcome == "ptsd",], sm = "SMD")
+nc.ptsd <- netconnection(treat1, treat2, studlab, df.smd.ptsd)
+print(nc.ptsd)
+nc.ptsd$D.matrix
+```
+
+## Alcohol outcome (matches with PTSD)
+```{r}
+df.smd.alcohol <- netmeta::pairwise(studlab = citation, treat = category, n = n, mean = mean, sd = sd,
+                                 data = df.smd[df.smd$outcome == "alcohol",], sm = "SMD")
+nc.alcohol <- netconnection(treat1, treat2, studlab, df.smd.alcohol)
+print(nc.alcohol)
+nc.alcohol$D.matrix
+```
+
+# PTSD OUTCOME
+## SUBNETWORK 1: Behavioral controls
+```{r}
+sn1.categories <- c("behavioral (aod)",
+                    "behavioral (control)",
+                    "integrated",
+                    "integrated trauma focused",
+                    "trauma focused",
+                    "integrated and ptsd medication")
+#Raw data and pairwise contrasts
+df.sn1.ptsd <- netmeta::pairwise(studlab = citation, treat = category, n = n,mean = mean, sd = sd, sm = "SMD", 
+                                 data = df.smd[df.smd$outcome == "ptsd" & df.smd[,"category"] %in% sn1.categories,])
+#NMA
+sn1.ptsd <- netmeta(df.sn1.ptsd, sm = "SMD", fixed = FALSE, random = TRUE,reference.group = "behavioral (control)")
+```
+
+### Figure 2A: Network plot
+```{r}
+#PLOT
+#n for node size
+df.ptsd.sn1.n <- aggregate(n~category, df.smd[df.smd$outcome == "ptsd" & df.smd[,"category"] %in% sn1.categories,], FUN = sum)
+#plot
+pdf("Fig2a.pdf", width = 7.5, height = 6)
+netgraph(sn1.ptsd, seq = df.ptsd.sn1.n[,"category"], 
+         offset = .12, 
+         #scale = .8, 
+         labels = c("Behavioral\n(AOD)",
+                    "Behavioral\n(control)",
+                    "Integrated\n(PTSD & AOD)",
+                    "Integrated +\nPTSD Medication\n(PTSD & AOD)",
+                    "Integrated &\nTrauma Focused\n(PTSD & AOD)",
+                    "Trauma Focused\n(PTSD)"),
+         points = TRUE, col.points = "gray", 
+         cex.points = df.ptsd.sn1.n$n/20, 
+         plastic = FALSE, col = "black", thickness = "w.random",
+         number.of.studies = TRUE, pos.number.of.studies = .5)
+dev.off()
+netgraph(sn1.ptsd, seq = df.ptsd.sn1.n[,"category"], 
+         offset = .12, 
+         #scale = .8, 
+         labels = c("Behavioral\n(AOD)",
+                    "Behavioral\n(control)",
+                    "Integrated\n(PTSD & AOD)",
+                    "Integrated + PTSD Medication\n(PTSD & AOD)",
+                    "Integrated &\nTrauma Focused\n(PTSD & AOD)",
+                    "Trauma Focused\n(PTSD)"),
+         points = TRUE, col.points = "gray", 
+         cex.points = df.ptsd.sn1.n$n/20, 
+         plastic = FALSE, col = "black", thickness = "w.random",
+         number.of.studies = TRUE, pos.number.of.studies = .5)
+```
+
+### Figure 3A: Results
+```{r}
+#RESULTS TABLE
+netleague(sn1.ptsd, digits = 2)
+cat("z statistics, network:")
+round(sn1.ptsd$statistic.random, 2)*-1
+cat("p-value statistics, network:")
+round(sn1.ptsd$pval.random, 3)
+cat("z statistics, direct:")
+round(sn1.ptsd$statistic.direct.random, 2)
+cat("p-value statistics, direct:")
+round(sn1.ptsd$pval.direct.random, 3)
+```
+
+### Summary
+```{r}
+summary(sn1.ptsd)
+```
+
+## SUBNETWORK 2: Placebo Controls
+```{r}
+sn2.categories <- c("medication (aod)",
+                    "medication (both)",
+                    "medication (ptsd)",
+                    "placebo (control)",
+                    "trauma focused and aod medication",
+                    "trauma focused and placebo"
+)
+
+#Raw data and pairwise contrasts
+df.sn2.ptsd <- netmeta::pairwise(studlab = citation, treat = category, n = n, mean = mean, sd = sd, data = df.smd[df.smd$outcome == "ptsd" & df.smd[,"category"] %in% sn2.categories,], sm = "SMD")
+#NMA
+sn2.ptsd <- netmeta(df.sn2.ptsd, sm = "SMD", fixed = FALSE, random = TRUE, reference.group = "placebo (control)")
+```
+
+### Figure 2B: Network plot
+```{r}
+#PLOT
+#n for node size
+df.ptsd.sn2.n <- aggregate(n~category, df.smd[df.smd$outcome == "ptsd" & df.smd[,"category"] %in% sn2.categories,], FUN = sum)
+#plot
+pdf("Fig2b.pdf", width = 9, height = 6)
+netgraph(sn2.ptsd, seq = df.ptsd.sn2.n[,"category"], 
+         offset = .12, 
+         scale = .8,
+         labels = c("Medication\n(AOD)",
+                    "Medication\n(PTSD & AOD)",
+                    "Medication\n(PTSD)",
+                    "Placebo\n(control)",
+                    "Trauma Focused\n+ AOD Medication\n(PTSD & AOD)",
+                    "Trauma Focused\n+ Placebo\n(PTSD)"),
+         points = TRUE, col.points = "gray", 
+         cex.points = df.ptsd.sn2.n$n/20, 
+         plastic = FALSE, col = "black", thickness = "w.random",
+         number.of.studies = TRUE, pos.number.of.studies = .5)
+dev.off()
+netgraph(sn2.ptsd, seq = df.ptsd.sn2.n[,"category"], 
+         offset = .12, 
+         #scale = .8, 
+         labels = c("Medication\n(AOD)",
+                    "Medication\n(PTSD & AOD)",
+                    "Medication\n(PTSD)",
+                    "Placebo\n(control)",
+                    "Trauma Focused\n+ AOD Medication\n(PTSD & AOD)",
+                    "Trauma Focused\n+ Placebo\n(PTSD)"),
+         points = TRUE, col.points = "gray", 
+         cex.points = df.ptsd.sn2.n$n/20, 
+         plastic = FALSE, col = "black", thickness = "w.random",
+         number.of.studies = TRUE, pos.number.of.studies = .5)
+```
+
+### Figure 3B: Results
+```{r}
+#RESULTS TABLE
+netleague(sn2.ptsd, digits = 2)
+cat("z statistics, network:")
+round(sn2.ptsd$statistic.random, 2)*-1
+cat("p-value statistics, network:")
+round(sn2.ptsd$pval.random, 3)
+cat("z statistics, direct:")
+round(sn2.ptsd$statistic.direct.random, 2)
+cat("p-value statistics, direct:")
+round(sn2.ptsd$pval.direct.random, 3)
+```
+
+### Summary
+```{r}
+summary(sn2.ptsd)
+```
+
+# ALCOHOL OUTCOME
+## SUBNETWORK 1: Behavioral controls
+```{r}
+sn1.categories <- c("behavioral (aod)",
+                    "behavioral (control)",
+                    "integrated",
+                    "integrated trauma focused",
+                    "trauma focused",
+                    "integrated and ptsd medication")
+#Raw data and pairwise contrasts
+df.sn1.alcohol <- netmeta::pairwise(studlab = citation, treat = category, n = n, mean = mean, sd = sd, data = df.smd[df.smd$outcome == "alcohol" & df.smd[,"category"] %in% sn1.categories,], sm = "SMD")
+#NMA
+sn1.alcohol <- netmeta(df.sn1.alcohol, sm = "SMD", fixed = FALSE, random = TRUE, reference.group = "behavioral (control)")
+```
+
+### Figure 3C: Results
+```{r}
+#RESULTS TABLE
+netleague(sn1.alcohol, digits = 2)
+cat("z statistics, network:")
+round(sn1.alcohol$statistic.random, 2)*-1
+cat("p-value statistics, network:")
+round(sn1.alcohol$pval.random, 3)
+cat("z statistics, direct:")
+round(sn1.alcohol$statistic.direct.random, 2)
+cat("p-value statistics, direct:")
+round(sn1.alcohol$pval.direct.random, 3)
+```
+
+### Summary
+```{r}
+summary(sn1.alcohol)
+```
+
+## SUBNETWORK 2: Placebo Controls
+```{r}
+sn2.categories <- c("medication (aod)",
+                    "medication (both)",
+                    "medication (ptsd)",
+                    "placebo (control)",
+                    "trauma focused and aod medication",
+                    "trauma focused and placebo"
+)
+#Raw data and pairwise contrasts
+df.sn2.alcohol <- netmeta::pairwise(studlab = citation, treat = category, n = n, mean = mean, sd = sd, data = df.smd[df.smd$outcome == "alcohol" & df.smd[,"category"] %in% sn2.categories,], sm = "SMD")
+#NMA
+sn2.alcohol <- netmeta(df.sn2.alcohol, sm = "SMD", fixed = FALSE, random = TRUE, reference.group = "placebo (control)")
+```
+
+### Figure 3D: Results
+```{r}
+#RESULTS TABLE
+netleague(sn2.alcohol, digits = 2)
+cat("z statistics, network:")
+round(sn2.alcohol$statistic.random, 2)*-1
+cat("p-value statistics, network:")
+round(sn2.alcohol$pval.random, 3)
+cat("z statistics, direct:")
+round(sn2.alcohol$statistic.direct.random, 2)
+cat("p-value statistics, direct:")
+round(sn2.alcohol$pval.direct.random, 3)
+```
+
+### Summary
+```{r}
+summary(sn2.alcohol)
+```
+
+# Supplement
+## Appendix 1. Study-Level Treatment Category Contrasts
+### PTSD Outcome
+```{r}
+df.smd.ptsd[,1:11]
+```
+### Alcohol Outcome
+```{r}
+df.smd.alcohol[,1:11]
+```
+
+## Appendix 2. Assessments of Small Study Effects
+### PTSD, sn1
+```{r}
+ord.sn1 <- c("behavioral (control)", "behavioral (aod)", "integrated", "trauma focused", "integrated and ptsd medication", "integrated trauma focused")
+pdf("plot.funnel.sn1.ptsd.pdf", width = 13, height = 11)
+funnel(sn1.ptsd, order = ord.sn1)
+dev.off()
+metabias(metagen(TE.adj, seTE, data = funnel(sn1.ptsd, order = ord.sn1)))
+```
+
+### PTSD, sn2
+```{r}
+ord.sn2 <- c("placebo (control)", "trauma focused and placebo", "medication (aod)", "medication (ptsd)", "medication (both)", "trauma focused and aod medication")
+pdf("plot.funnel.sn2.ptsd.pdf", width = 13, height = 11)
+funnel(sn2.ptsd, order = ord.sn2)
+dev.off()
+metabias(metagen(TE.adj, seTE, data = funnel(sn2.ptsd, order = ord.sn2)))
+```
+
+### alcohol, sn1
+```{r}
+pdf("plot.funnel.sn1.alcohol.pdf", width = 13, height = 11)
+funnel(sn1.alcohol, order = ord.sn1)
+dev.off()
+metabias(metagen(TE.adj, seTE, data = funnel(sn1.alcohol, order = ord.sn1)), method.bias = "Egger")
+metabias(metagen(TE.adj, seTE, data = funnel(sn1.alcohol, order = ord.sn1)), method.bias = "Begg")
+metabias(metagen(TE.adj, seTE, data = funnel(sn1.alcohol, order = ord.sn1)), method.bias = "Thompson")
+
+```
+
+### alcohol, sn2
+```{r}
+pdf("plot.funnel.sn2.alcohol.pdf", width = 13, height = 11)
+funnel(sn2.alcohol, order = ord.sn2)
+dev.off()
+metabias(metagen(TE.adj, seTE, data = funnel(sn2.alcohol, order = ord.sn2)))
+```
+
+## Appendix 3. Pairwise meta-analyses
+In contrast to the NMAs, unadjusted standard errors are used in the calculations and the between-study heterogeneity variance is allowed to differ between comparisons.
+### Forest plot, PTSD, sn1
+```{r, fig.height= 13.5}
+net.pw.sn1.ptsd <- netpairwise(sn1.ptsd)
+pdf("plot.forest.sn1.ptsd.pdf", width = 8, height = 13.5)
+forest(net.pw.sn1.ptsd, leftcols = c("studlab", "n.e", "n.c", "effect", "ci"), rightcols = FALSE,
+       label.right = "Favors Second\nTreatment Category",
+label.left = "Favors First\nTreatment Category"
+)
+dev.off()
+forest(net.pw.sn1.ptsd, leftcols = c("studlab", "n.e", "n.c", "effect", "ci"), rightcols = FALSE,
+       label.right = "Favors Second\nTreatment Category",
+label.left = "Favors First\nTreatment Category"
+)
+```
+
+### Forest plot, PTSD, sn2
+```{r, fig.height = 11}
+net.pw.sn2.ptsd <- netpairwise(sn2.ptsd)
+pdf("plot.forest.sn2.ptsd.pdf", width = 8, height = 11)
+forest(net.pw.sn2.ptsd, leftcols = c("studlab", "n.e", "n.c", "effect", "ci"), rightcols = FALSE,
+       label.right = "Favors Second\nTreatment Category",
+label.left = "Favors First\nTreatment Category"
+)
+dev.off()
+forest(net.pw.sn2.ptsd, leftcols = c("studlab", "n.e", "n.c", "effect", "ci"), rightcols = FALSE,
+       label.right = "Favors Second\nTreatment Category",
+label.left = "Favors First\nTreatment Category"
+)
+```
+
+### Forest plot, alcohol, sn1
+```{r, fig.height = 13.5}
+net.pw.sn1.alcohol <- netpairwise(sn1.alcohol)
+pdf("plot.forest.sn1.alcohol.pdf", width = 8, height = 13.5)
+forest(net.pw.sn1.alcohol, leftcols = c("studlab", "n.e", "n.c", "effect", "ci"), rightcols = FALSE,
+       label.right = "Favors Second\nTreatment Category",
+label.left = "Favors First\nTreatment Category"
+)
+dev.off()
+forest(net.pw.sn1.alcohol, leftcols = c("studlab", "n.e", "n.c", "effect", "ci"), rightcols = FALSE,
+       label.right = "Favors Second\nTreatment Category",
+label.left = "Favors First\nTreatment Category"
+)
+```
+
+### Forest plot, alcohol, sn2
+```{r, fig.height = 11}
+net.pw.sn2.alcohol <- netpairwise(sn2.alcohol)
+pdf("plot.forest.sn2.alcohol.pdf", width = 8, height = 11)
+forest(net.pw.sn2.alcohol, leftcols = c("studlab", "n.e", "n.c", "effect", "ci"), rightcols = FALSE,
+       label.right = "Favors Second\nTreatment Category",
+label.left = "Favors First\nTreatment Category"
+)
+dev.off()
+forest(net.pw.sn2.alcohol, leftcols = c("studlab", "n.e", "n.c", "effect", "ci"), rightcols = FALSE,
+       label.right = "Favors Second\nTreatment Category",
+label.left = "Favors First\nTreatment Category"
+)
+```
+
+##Appendix 4. Sensitivity analyses without Hien 2015, Ruglass 2017 & Pearson 2019
+```{r}
+sen1.categories <- c("behavioral (aod)",
+                    "behavioral (control)",
+                    "integrated",
+                    "integrated trauma focused",
+                    "trauma focused")
+#Raw data and pairwise contrasts
+df.sen1.ptsd <- netmeta::pairwise(studlab = citation, treat = category, n = n,mean = mean, sd = sd, sm = "SMD", 
+                                 data = df.smd[df.smd$outcome == "ptsd" & df.smd[,"category"] %in% sen1.categories 
+                                               & df.smd$citation != "Ruglass 2017" & df.smd$citation != "Pearson 2019",])
+#NMA
+sen1.ptsd <- netmeta(df.sen1.ptsd, sm = "SMD", fixed = FALSE, random = TRUE,reference.group = "behavioral (control)")
+```
+
+### Network plot, SN1 without Hien 2015, Ruglass 2017 & Pearson 2019
+```{r}
+#PLOT
+#n for node size
+df.ptsd.sen1.n <- aggregate(n~category, df.smd[df.smd$outcome == "ptsd" & df.smd[,"category"] %in% sen1.categories & df.smd$citation != "Ruglass 2017" & df.smd$citation != "Pearson 2019",], FUN = sum)
+#plot
+pdf("Figsen1.pdf", width = 7.5, height = 6)
+netgraph(sen1.ptsd, seq = df.ptsd.sen1.n[,"category"], 
+         offset = .12, 
+         #scale = .8, 
+         labels = c("Behavioral\n(AOD)",
+                    "Behavioral\n(control)",
+                    "Integrated\n(PTSD & AOD)",
+                    "Integrated &\nTrauma Focused\n(PTSD & AOD)"),
+         points = TRUE, col.points = "gray", 
+         cex.points = df.ptsd.sen1.n$n/20, 
+         plastic = FALSE, col = "black", thickness = "w.random",
+         number.of.studies = TRUE, pos.number.of.studies = .5)
+dev.off()
+netgraph(sen1.ptsd, seq = df.ptsd.sen1.n[,"category"], 
+         offset = .12, 
+         #scale = .8, 
+         labels = c("Behavioral\n(AOD)",
+                    "Behavioral\n(control)",
+                    "Integrated\n(PTSD & AOD)",
+                    "Integrated &\nTrauma Focused\n(PTSD & AOD)"),
+         points = TRUE, col.points = "gray", 
+         cex.points = df.ptsd.sen1.n$n/20, 
+         plastic = FALSE, col = "black", thickness = "w.random",
+         number.of.studies = TRUE, pos.number.of.studies = .5)
+```
+
+### PTSD Results, SN1 without Hien 2015, Ruglass 2017 & Pearson 2019
+```{r}
+#RESULTS TABLE
+netleague(sen1.ptsd, digits = 2)
+cat("z statistics, network:")
+round(sen1.ptsd$statistic.random, 2)*-1
+cat("p-value statistics, network:")
+round(sen1.ptsd$pval.random, 3)
+cat("z statistics, direct:")
+round(sen1.ptsd$statistic.direct.random, 2)
+cat("p-value statistics, direct:")
+round(sen1.ptsd$pval.direct.random, 3)
+```
+
+### PTSD Summary, SN1 without Hien 2015, Ruglass 2017 & Pearson 2019
+```{r}
+summary(sen1.ptsd)
+netsplit(sen1.ptsd)
+```
+
+### Alcohol Results, SN1 without Hien 2015, Ruglass 2017 & Pearson 2019
+```{r}
+df.sen1.alcohol <- netmeta::pairwise(studlab = citation, treat = category, n = n, mean = mean, sd = sd, data = df.smd[df.smd$outcome == "alcohol" & df.smd[,"category"] %in% sen1.categories & df.smd$citation != "Ruglass 2017" & df.smd$citation != "Pearson 2019",], sm = "SMD")
+#NMA
+sen1.alcohol <- netmeta(df.sen1.alcohol, sm = "SMD", fixed = FALSE, random = TRUE, reference.group = "behavioral (control)")
+#RESULTS TABLE
+netleague(sen1.alcohol, digits = 2)
+cat("z statistics, network:")
+round(sen1.alcohol$statistic.random, 2)*-1
+cat("p-value statistics, network:")
+round(sen1.alcohol$pval.random, 3)
+cat("z statistics, direct:")
+round(sen1.alcohol$statistic.direct.random, 2)
+cat("p-value statistics, direct:")
+round(sen1.alcohol$pval.direct.random, 3)
+```
+
+### Alcohol Summary, SN1 without Hien 2015, Ruglass 2017 & Pearson 2019
+```{r}
+summary(sen1.alcohol)
+```
+
+## Appendix 5. Sensitivity analyses without Back 2016 (only study that targeted alcohol or substance use- all others were AUD)
+```{r}
+sen2.categories <- c("medication (aod)",
+                    "medication (both)",
+                    "medication (ptsd)",
+                    "placebo (control)",
+                    "trauma focused and aod medication",
+                    "trauma focused and placebo"
+)
+
+#Raw data and pairwise contrasts
+df.sen2.ptsd <- netmeta::pairwise(studlab = citation, treat = category, n = n, mean = mean, sd = sd, data = df.smd[df.smd$outcome == "ptsd" & df.smd[,"category"] %in% sen2.categories & df.smd$citation != "Back 2016",], sm = "SMD")
+#NMA
+sen2.ptsd <- netmeta(df.sen2.ptsd, sm = "SMD", fixed = FALSE, random = TRUE, reference.group = "placebo (control)")
+```
+
+### Network plot, SN2 without Back 2016
+```{r}
+#PLOT
+#n for node size
+df.ptsd.sen2.n <- aggregate(n~category, df.smd[df.smd$outcome == "ptsd" & df.smd[,"category"] %in% sen2.categories  & df.smd$citation != "Back 2016",], FUN = sum)
+#plot
+pdf("Figsen2.pdf", width = 9, height = 6)
+netgraph(sen2.ptsd, seq = df.ptsd.sen2.n[,"category"], 
+         offset = .12, 
+         scale = .8,
+         labels = c("Medication\n(AOD)",
+                    "Medication\n(PTSD & AOD)",
+                    "Medication\n(PTSD)",
+                    "Placebo\n(control)",
+                    "Trauma Focused\n+ AOD Medication\n(PTSD & AOD)",
+                    "Trauma Focused\n+ Placebo\n(PTSD)"),
+         points = TRUE, col.points = "gray", 
+         cex.points = df.ptsd.sen2.n$n/20, 
+         plastic = FALSE, col = "black", thickness = "w.random",
+         number.of.studies = TRUE, pos.number.of.studies = .5)
+dev.off()
+netgraph(sen2.ptsd, seq = df.ptsd.sen2.n[,"category"], 
+         offset = .12, 
+         #scale = .8, 
+         labels = c("Medication\n(AOD)",
+                    "Medication\n(PTSD & AOD)",
+                    "Medication\n(PTSD)",
+                    "Placebo\n(control)",
+                    "Trauma Focused\n+ AOD Medication\n(PTSD & AOD)",
+                    "Trauma Focused\n+ Placebo\n(PTSD)"),
+         points = TRUE, col.points = "gray", 
+         cex.points = df.ptsd.sen2.n$n/20, 
+         plastic = FALSE, col = "black", thickness = "w.random",
+         number.of.studies = TRUE, pos.number.of.studies = .5)
+```
+
+### PTSD Results, SN2 without Back 2016
+```{r}
+#RESULTS TABLE
+netleague(sen2.ptsd, digits = 2)
+cat("z statistics, network:")
+round(sen2.ptsd$statistic.random, 2)*-1
+cat("p-value statistics, network:")
+round(sen2.ptsd$pval.random, 3)
+cat("z statistics, direct:")
+round(sen2.ptsd$statistic.direct.random, 2)
+cat("p-value statistics, direct:")
+round(sen2.ptsd$pval.direct.random, 3)
+```
+
+### PTSD Summary, SN2 without Back 2016
+```{r}
+summary(sen2.ptsd)
+```
+
+### Alcohol Results, SN2 without Back 2016
+```{r}
+#Raw data and pairwise contrasts
+df.sen2.alcohol <- netmeta::pairwise(studlab = citation, treat = category, n = n, mean = mean, sd = sd, data = df.smd[df.smd$outcome == "alcohol" & df.smd[,"category"] %in% sen2.categories & df.smd$citation != "Back 2016",], sm = "SMD")
+#NMA
+sen2.alcohol <- netmeta(df.sen2.alcohol, sm = "SMD", fixed = FALSE, random = TRUE, reference.group = "placebo (control)")
+#RESULTS TABLE
+netleague(sen2.alcohol, digits = 2)
+cat("z statistics, network:")
+round(sen2.alcohol$statistic.random, 2)*-1
+cat("p-value statistics, network:")
+round(sen2.alcohol$pval.random, 3)
+cat("z statistics, direct:")
+round(sen2.alcohol$statistic.direct.random, 2)
+cat("p-value statistics, direct:")
+round(sen2.alcohol$pval.direct.random, 3)
+```
+
+### PTSD Summary, SN2 without Back 2016
+```{r}
+summary(sen2.alcohol)
+```
+
+# Session information
+```{r}
+sessionInfo()
+```
